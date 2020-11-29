@@ -32,8 +32,36 @@ class JubeatSaucer(
     name = 'Jubeat Saucer'
     version = VersionConstants.JUBEAT_SAUCER
 
+    GAME_CHART_TYPE_BASIC = 0
+    GAME_CHART_TYPE_ADVANCED = 1
+    GAME_CHART_TYPE_EXTREME = 2
+
     def previous_version(self) -> Optional[JubeatBase]:
         return JubeatCopiousAppend(self.data, self.config, self.model)
+
+    def game_to_db_chart(self, game_chart: int, hard_mode: bool) -> int:
+        if hard_mode:
+            return {
+                self.GAME_CHART_TYPE_BASIC: self.CHART_TYPE_HARD_BASIC,
+                self.GAME_CHART_TYPE_ADVANCED: self.CHART_TYPE_HARD_ADVANCED,
+                self.GAME_CHART_TYPE_EXTREME: self.CHART_TYPE_HARD_EXTREME,
+            }[game_chart]
+        else:
+            return {
+                self.GAME_CHART_TYPE_BASIC: self.CHART_TYPE_BASIC,
+                self.GAME_CHART_TYPE_ADVANCED: self.CHART_TYPE_ADVANCED,
+                self.GAME_CHART_TYPE_EXTREME: self.CHART_TYPE_EXTREME,
+            }[game_chart]
+
+    def db_to_game_chart(self, db_chart: int) -> int:
+        return {
+            self.CHART_TYPE_BASIC: self.GAME_CHART_TYPE_BASIC,
+            self.CHART_TYPE_ADVANCED: self.GAME_CHART_TYPE_ADVANCED,
+            self.CHART_TYPE_EXTREME: self.GAME_CHART_TYPE_EXTREME,
+            self.CHART_TYPE_HARD_BASIC: self.GAME_CHART_TYPE_BASIC,
+            self.CHART_TYPE_HARD_ADVANCED: self.GAME_CHART_TYPE_ADVANCED,
+            self.CHART_TYPE_HARD_EXTREME: self.GAME_CHART_TYPE_EXTREME,
+        }[db_chart]
 
     @classmethod
     def run_scheduled_work(cls, data: Data, config: Dict[str, Any]) -> List[Tuple[str, Dict[str, Any]]]:
@@ -135,6 +163,17 @@ class JubeatSaucer(
         data = request.child('data')
         player = data.child('player')
         extid = player.child_value('jid')
+        mdata_ver = player.child_value('mdata_ver')  # Game requests mdata 3 times per profile for some reason
+        if mdata_ver != 1:
+            root = Node.void('gametop')
+            datanode = Node.void('data')
+            root.add_child(datanode)
+            player = Node.void('player')
+            datanode.add_child(player)
+            player.add_child(Node.s32('jid', extid))
+            playdata = Node.void('mdata_list')
+            player.add_child(playdata)
+            return root
         root = self.get_scores_by_extid(extid)
         if root is None:
             root = Node.void('gametop')
@@ -612,12 +651,11 @@ class JubeatSaucer(
                 songid = tune.child_value('music')
                 entry = int(tune.attribute('id'))
                 timestamp = timestamps.get(entry, Time.now())
-                chart = int(result.child('score').attribute('seq'))
+                chart = self.game_to_db_chart(int(result.child('score').attribute('seq')), bool(result.child_value('is_hard_mode')))
                 points = result.child_value('score')
                 flags = int(result.child('score').attribute('clear'))
                 combo = int(result.child('score').attribute('combo'))
                 ghost = result.child_value('mbar')
-                is_hard_mode = bool(result.child_value('is_hard_mode'))
 
                 # Miscelaneous last data for echoing to profile get
                 last.replace_int('music_id', songid)
@@ -637,7 +675,7 @@ class JubeatSaucer(
                     if flags & bit > 0:
                         medal = max(medal, mapping[bit])
 
-                self.update_score(userid, timestamp, songid, chart, points, medal, combo, ghost, hard_mode=is_hard_mode)
+                self.update_score(userid, timestamp, songid, chart, points, medal, combo, ghost)
 
         # Save back last information gleaned from results
         newprofile.replace_dict('last', last)
@@ -662,7 +700,7 @@ class JubeatSaucer(
 
         music = ValidatedDict()
         for score in scores:
-            chart = score.chart if score.chart < 3 else score.chart - 3
+            chart = self.db_to_game_chart(score.chart)
             data = music.get_dict(str(score.id))
             play_cnt = data.get_int_array('play_cnt', 3)
             clear_cnt = data.get_int_array('clear_cnt', 3)
@@ -674,6 +712,8 @@ class JubeatSaucer(
             # This means that we already assigned a value and it was greater than current
             # This is possible because we iterate through both hard mode and normal mode scores
             # and treat them equally.
+            # TODO: generalize score merging code into a library since this does not account for
+            # having a full combo in hard mode but not in normal.
             if points[chart] >= score.points:
                 continue
             # Replace data for this chart type
