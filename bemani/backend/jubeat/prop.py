@@ -319,24 +319,25 @@ class JubeatProp(
             # Generate a new league course list, save it to the DB.
             start_time, end_time = data.local.network.get_schedule_duration('weekly')
             all_songs = set(song.id for song in data.local.music.get_all_songs(cls.game, cls.version))
-            league_songs = random.sample(all_songs, 3)
-            data.local.game.put_time_sensitive_settings(
-                cls.game,
-                cls.version,
-                'league',
-                {
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'music': league_songs,
-                },
-            )
-            events.append((
-                'jubeat_league_course',
-                {
-                    'version': cls.version,
-                    'songs': league_songs,
-                },
-            ))
+            if len(all_songs) > 0:
+                league_songs = random.sample(all_songs, 3)
+                data.local.game.put_time_sensitive_settings(
+                    cls.game,
+                    cls.version,
+                    'league',
+                    {
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'music': league_songs,
+                    },
+                )
+                events.append((
+                    'jubeat_league_course',
+                    {
+                        'version': cls.version,
+                        'songs': league_songs,
+                    },
+                ))
 
             # League ID for the current league we just added.
             leagueid = int(start_time / 604800)
@@ -363,26 +364,27 @@ class JubeatProp(
             # Generate a new list of two FC challenge songs.
             start_time, end_time = data.local.network.get_schedule_duration('daily')
             all_songs = set(song.id for song in data.local.music.get_all_songs(cls.game, cls.version))
-            daily_songs = random.sample(all_songs, 2)
-            data.local.game.put_time_sensitive_settings(
-                cls.game,
-                cls.version,
-                'fc_challenge',
-                {
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'today': daily_songs[0],
-                    'whim': daily_songs[1],
-                },
-            )
-            events.append((
-                'jubeat_fc_challenge_charts',
-                {
-                    'version': cls.version,
-                    'today': daily_songs[0],
-                    'whim': daily_songs[1],
-                },
-            ))
+            if len(all_songs) > 0:
+                daily_songs = random.sample(all_songs, 2)
+                data.local.game.put_time_sensitive_settings(
+                    cls.game,
+                    cls.version,
+                    'fc_challenge',
+                    {
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'today': daily_songs[0],
+                        'whim': daily_songs[1],
+                    },
+                )
+                events.append((
+                    'jubeat_fc_challenge_charts',
+                    {
+                        'version': cls.version,
+                        'today': daily_songs[0],
+                        'whim': daily_songs[1],
+                    },
+                ))
 
             # Mark that we did some actual work here.
             data.local.network.mark_scheduled(cls.game, cls.version, 'fc_challenge', 'daily')

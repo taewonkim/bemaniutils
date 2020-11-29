@@ -99,24 +99,25 @@ class IIDXHeroicVerse(IIDXCourse, IIDXBase):
             # Generate a new list of three dailies.
             start_time, end_time = data.local.network.get_schedule_duration('daily')
             all_songs = list(set([song.id for song in data.local.music.get_all_songs(cls.game, cls.version)]))
-            daily_songs = random.sample(all_songs, 3)
-            data.local.game.put_time_sensitive_settings(
-                cls.game,
-                cls.version,
-                'dailies',
-                {
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'music': daily_songs,
-                },
-            )
-            events.append((
-                'iidx_daily_charts',
-                {
-                    'version': cls.version,
-                    'music': daily_songs,
-                },
-            ))
+            if len(all_songs) > 0:
+                daily_songs = random.sample(all_songs, 3)
+                data.local.game.put_time_sensitive_settings(
+                    cls.game,
+                    cls.version,
+                    'dailies',
+                    {
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'music': daily_songs,
+                    },
+                )
+                events.append((
+                    'iidx_daily_charts',
+                    {
+                        'version': cls.version,
+                        'music': daily_songs,
+                    },
+                ))
 
             # Mark that we did some actual work here.
             data.local.network.mark_scheduled(cls.game, cls.version, 'daily_charts', 'daily')
@@ -1075,6 +1076,12 @@ class IIDXHeroicVerse(IIDXCourse, IIDXBase):
 
     def handle_IIDX27pc_logout_request(self, request: Node) -> Node:
         return Node.void('IIDX27pc')
+
+    # IIDX27pc.eaappliresult
+    def handle_IIDX27pc_eaappliresult_request(self, request: Node) -> Node:
+        root = Node.void('IIDX27pc')
+        # print(request)
+        return root
 
     def handle_IIDX27gameSystem_systemInfo_request(self, request: Node) -> Node:
         return Node.void('IIDX27gameSystem')

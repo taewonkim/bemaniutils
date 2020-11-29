@@ -71,24 +71,25 @@ class PopnMusicPeace(PopnMusicBase):
             # Generate a new course list, save it to the DB.
             start_time, end_time = data.local.network.get_schedule_duration('weekly')
             all_songs = [song.id for song in data.local.music.get_all_songs(cls.game, cls.version)]
-            course_song = random.choice(all_songs)
-            data.local.game.put_time_sensitive_settings(
-                cls.game,
-                cls.version,
-                'course',
-                {
-                    'start_time': start_time,
-                    'end_time': end_time,
-                    'music': course_song,
-                },
-            )
-            events.append((
-                'pnm_course',
-                {
-                    'version': cls.version,
-                    'song': course_song,
-                },
-            ))
+            if len(all_songs) > 0:
+                course_song = random.choice(all_songs)
+                data.local.game.put_time_sensitive_settings(
+                    cls.game,
+                    cls.version,
+                    'course',
+                    {
+                        'start_time': start_time,
+                        'end_time': end_time,
+                        'music': course_song,
+                    },
+                )
+                events.append((
+                    'pnm_course',
+                    {
+                        'version': cls.version,
+                        'song': course_song,
+                    },
+                ))
 
             # Mark that we did some actual work here.
             data.local.network.mark_scheduled(cls.game, cls.version, 'course', 'weekly')
